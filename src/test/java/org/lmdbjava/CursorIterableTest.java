@@ -7,9 +7,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,6 +19,26 @@
  */
 
 package org.lmdbjava;
+
+import com.google.common.primitives.UnsignedBytes;
+import org.hamcrest.Matchers;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.lmdbjava.CursorIterable.KeyVal;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 import static com.jakewharton.byteunits.BinaryByteUnit.KIBIBYTES;
 import static java.util.Arrays.asList;
@@ -51,26 +71,6 @@ import static org.lmdbjava.TestUtils.DB_1;
 import static org.lmdbjava.TestUtils.POSIX_MODE;
 import static org.lmdbjava.TestUtils.bb;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.NoSuchElementException;
-
-import com.google.common.primitives.UnsignedBytes;
-import org.hamcrest.Matchers;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.lmdbjava.CursorIterable.KeyVal;
-
 /**
  * Test {@link CursorIterable}.
  */
@@ -89,37 +89,37 @@ public final class CursorIterableTest {
 
   @Test
   public void allBackwardTest() {
-    verify(allBackward(), 8, 6, 4, 2);
+    verify(allBackward(), 800, 600, 400, 200);
   }
 
   @Test
   public void allTest() {
-    verify(all(), 2, 4, 6, 8);
+    verify(all(), 200, 400, 600, 800);
   }
 
   @Test
   public void atLeastBackwardTest() {
-    verify(atLeastBackward(bb(5)), 4, 2);
-    verify(atLeastBackward(bb(6)), 6, 4, 2);
-    verify(atLeastBackward(bb(9)), 8, 6, 4, 2);
+    verify(atLeastBackward(bb(500)), 400, 200);
+    verify(atLeastBackward(bb(600)), 600, 400, 200);
+    verify(atLeastBackward(bb(900)), 800, 600, 400, 200);
   }
 
   @Test
   public void atLeastTest() {
-    verify(atLeast(bb(5)), 6, 8);
-    verify(atLeast(bb(6)), 6, 8);
+    verify(atLeast(bb(500)), 600, 800);
+    verify(atLeast(bb(600)), 600, 800);
   }
 
   @Test
   public void atMostBackwardTest() {
-    verify(atMostBackward(bb(5)), 8, 6);
-    verify(atMostBackward(bb(6)), 8, 6);
+    verify(atMostBackward(bb(500)), 800, 600);
+    verify(atMostBackward(bb(600)), 800, 600);
   }
 
   @Test
   public void atMostTest() {
-    verify(atMost(bb(5)), 2, 4);
-    verify(atMost(bb(6)), 2, 4, 6);
+    verify(atMost(bb(500)), 200, 400);
+    verify(atMost(bb(600)), 200, 400, 600);
   }
 
   @Before
@@ -136,55 +136,55 @@ public final class CursorIterableTest {
 
   private void populateDatabase(final Dbi<ByteBuffer> dbi) {
     list = new LinkedList<>();
-    list.addAll(asList(2, 3, 4, 5, 6, 7, 8, 9));
+    list.addAll(asList(200, 300, 400, 500, 600, 700, 800, 900));
     try (Txn<ByteBuffer> txn = env.txnWrite()) {
       final Cursor<ByteBuffer> c = dbi.openCursor(txn);
-      c.put(bb(2), bb(3), MDB_NOOVERWRITE);
-      c.put(bb(4), bb(5));
-      c.put(bb(6), bb(7));
-      c.put(bb(8), bb(9));
+      c.put(bb(200), bb(300), MDB_NOOVERWRITE);
+      c.put(bb(400), bb(500));
+      c.put(bb(600), bb(700));
+      c.put(bb(800), bb(900));
       txn.commit();
     }
   }
 
   @Test
   public void closedBackwardTest() {
-    verify(closedBackward(bb(7), bb(3)), 6, 4);
-    verify(closedBackward(bb(6), bb(2)), 6, 4, 2);
-    verify(closedBackward(bb(9), bb(3)), 8, 6, 4);
+    verify(closedBackward(bb(700), bb(300)), 600, 400);
+    verify(closedBackward(bb(600), bb(200)), 600, 400, 200);
+    verify(closedBackward(bb(900), bb(300)), 800, 600, 400);
   }
 
   @Test
   public void closedOpenBackwardTest() {
-    verify(closedOpenBackward(bb(8), bb(3)), 8, 6, 4);
-    verify(closedOpenBackward(bb(7), bb(2)), 6, 4);
-    verify(closedOpenBackward(bb(9), bb(3)), 8, 6, 4);
+    verify(closedOpenBackward(bb(800), bb(300)), 800, 600, 400);
+    verify(closedOpenBackward(bb(700), bb(200)), 600, 400);
+    verify(closedOpenBackward(bb(900), bb(300)), 800, 600, 400);
   }
 
   @Test
   public void closedOpenTest() {
-    verify(closedOpen(bb(3), bb(8)), 4, 6);
-    verify(closedOpen(bb(2), bb(6)), 2, 4);
+    verify(closedOpen(bb(300), bb(800)), 400, 600);
+    verify(closedOpen(bb(200), bb(600)), 200, 400);
   }
 
   @Test
   public void closedTest() {
-    verify(closed(bb(3), bb(7)), 4, 6);
-    verify(closed(bb(2), bb(6)), 2, 4, 6);
-    verify(closed(bb(1), bb(7)), 2, 4, 6);
+    verify(closed(bb(300), bb(700)), 400, 600);
+    verify(closed(bb(200), bb(600)), 200, 400, 600);
+    verify(closed(bb(1), bb(700)), 200, 400, 600);
   }
 
   @Test
   public void greaterThanBackwardTest() {
-    verify(greaterThanBackward(bb(6)), 4, 2);
-    verify(greaterThanBackward(bb(7)), 6, 4, 2);
-    verify(greaterThanBackward(bb(9)), 8, 6, 4, 2);
+    verify(greaterThanBackward(bb(600)), 400, 200);
+    verify(greaterThanBackward(bb(700)), 600, 400, 200);
+    verify(greaterThanBackward(bb(900)), 800, 600, 400, 200);
   }
 
   @Test
   public void greaterThanTest() {
-    verify(greaterThan(bb(4)), 6, 8);
-    verify(greaterThan(bb(3)), 4, 6, 8);
+    verify(greaterThan(bb(400)), 600, 800);
+    verify(greaterThan(bb(300)), 400, 600, 800);
   }
 
   @Test(expected = IllegalStateException.class)
@@ -218,14 +218,14 @@ public final class CursorIterableTest {
 
   @Test
   public void lessThanBackwardTest() {
-    verify(lessThanBackward(bb(5)), 8, 6);
-    verify(lessThanBackward(bb(2)), 8, 6, 4);
+    verify(lessThanBackward(bb(500)), 800, 600);
+    verify(lessThanBackward(bb(200)), 800, 600, 400);
   }
 
   @Test
   public void lessThanTest() {
-    verify(lessThan(bb(5)), 2, 4);
-    verify(lessThan(bb(8)), 2, 4, 6);
+    verify(lessThan(bb(500)), 200, 400);
+    verify(lessThan(bb(800)), 200, 400, 600);
   }
 
   @Test(expected = NoSuchElementException.class)
@@ -245,16 +245,16 @@ public final class CursorIterableTest {
 
   @Test
   public void openBackwardTest() {
-    verify(openBackward(bb(7), bb(2)), 6, 4);
-    verify(openBackward(bb(8), bb(1)), 6, 4, 2);
-    verify(openBackward(bb(9), bb(4)), 8, 6);
+    verify(openBackward(bb(700), bb(200)), 600, 400);
+    verify(openBackward(bb(800), bb(1)), 600, 400, 200);
+    verify(openBackward(bb(900), bb(400)), 800, 600);
   }
 
   @Test
   public void openClosedBackwardTest() {
-    verify(openClosedBackward(bb(7), bb(2)), 6, 4, 2);
-    verify(openClosedBackward(bb(8), bb(4)), 6, 4);
-    verify(openClosedBackward(bb(9), bb(4)), 8, 6, 4);
+    verify(openClosedBackward(bb(700), bb(200)), 600, 400, 200);
+    verify(openClosedBackward(bb(800), bb(400)), 600, 400);
+    verify(openClosedBackward(bb(900), bb(400)), 800, 600, 400);
   }
 
   @Test
@@ -273,25 +273,25 @@ public final class CursorIterableTest {
     };
     final Dbi<ByteBuffer> guavaDbi = env.openDbi(DB_1, comparator, MDB_CREATE);
     populateDatabase(guavaDbi);
-    verify(openClosedBackward(bb(7), bb(2)), guavaDbi, 6, 4, 2);
-    verify(openClosedBackward(bb(8), bb(4)), guavaDbi, 6, 4);
+    verify(openClosedBackward(bb(700), bb(200)), guavaDbi, 600, 400, 200);
+    verify(openClosedBackward(bb(800), bb(400)), guavaDbi, 600, 400);
   }
 
   @Test
   public void openClosedTest() {
-    verify(openClosed(bb(3), bb(8)), 4, 6, 8);
-    verify(openClosed(bb(2), bb(6)), 4, 6);
+    verify(openClosed(bb(300), bb(800)), 400, 600, 800);
+    verify(openClosed(bb(200), bb(600)), 400, 600);
   }
 
   @Test
   public void openTest() {
-    verify(open(bb(3), bb(7)), 4, 6);
-    verify(open(bb(2), bb(8)), 4, 6);
+    verify(open(bb(300), bb(700)), 400, 600);
+    verify(open(bb(200), bb(800)), 400, 600);
   }
 
   @Test
   public void removeOddElements() {
-    verify(all(), 2, 4, 6, 8);
+    verify(all(), 200, 400, 600, 800);
     int idx = -1;
     try (Txn<ByteBuffer> txn = env.txnWrite()) {
       try (CursorIterable<ByteBuffer> ci = db.iterate(txn)) {
@@ -306,7 +306,7 @@ public final class CursorIterableTest {
       }
       txn.commit();
     }
-    verify(all(), 4, 8);
+    verify(all(), 400, 800);
   }
 
   @Test(expected = Env.AlreadyClosedException.class)
@@ -377,7 +377,7 @@ public final class CursorIterableTest {
         final int key = kv.key().getInt();
         final int val = kv.val().getInt();
         results.add(key);
-        assertThat(val, is(key + 1));
+        assertThat(val, is(key + 100));
       }
     }
 
