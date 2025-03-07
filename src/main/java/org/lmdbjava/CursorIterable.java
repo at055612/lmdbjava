@@ -67,8 +67,8 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
       // No java-side comparator so call down to LMDB to do the comparison
       this.rangeComparator = new LmdbRangeComparator<>(txn, dbi, cursor, range, proxy);
     }
-    this.iteratorOpTester = new KeyRangeType.IteratorOpTester<>(
-        range, rangeComparator, proxy::getPrefixMatcher);
+    this.iteratorOpTester =
+        new KeyRangeType.IteratorOpTester<>(range, rangeComparator, proxy::getPrefixMatcher);
   }
 
   @Override
@@ -207,11 +207,8 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
     private T k;
     private T v;
 
-    /**
-     * Explicitly-defined default constructor to avoid warnings.
-     */
-    public KeyVal() {
-    }
+    /** Explicitly-defined default constructor to avoid warnings. */
+    public KeyVal() {}
 
     /**
      * The key.
@@ -240,9 +237,7 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
     }
   }
 
-  /**
-   * Represents the internal {@link CursorIterable} state.
-   */
+  /** Represents the internal {@link CursorIterable} state. */
   enum State {
     REQUIRES_INITIAL_OP,
     REQUIRES_NEXT_OP,

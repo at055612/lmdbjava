@@ -239,8 +239,9 @@ public enum KeyRangeType {
    *   <li>'600|602'
    *   <li>'600|604'
    * </ul>
-   * <p>
-   * A startKey of '400' would return keys '400', '400|402' and '400|404' due to the common prefix.
+   *
+   * <p>A startKey of '400' would return keys '400', '400|402' and '400|404' due to the common
+   * prefix.
    */
   FORWARD_KEY_PREFIX(true, true, false),
   ;
@@ -353,65 +354,37 @@ public enum KeyRangeType {
     return nextOp;
   }
 
-
   // --------------------------------------------------------------------------------
 
-
-  /**
-   * Action now required with the iterator.
-   */
+  /** Action now required with the iterator. */
   enum IteratorOp {
-    /**
-     * Consider iterator completed.
-     */
+    /** Consider iterator completed. */
     TERMINATE,
-    /**
-     * Call {@link KeyRange#nextOp()} again and try again.
-     */
+    /** Call {@link KeyRange#nextOp()} again and try again. */
     CALL_NEXT_OP,
-    /**
-     * Return the key to the user.
-     */
+    /** Return the key to the user. */
     RELEASE
   }
 
-
   // --------------------------------------------------------------------------------
 
-
-  /**
-   * Action now required with the cursor.
-   */
+  /** Action now required with the cursor. */
   enum CursorOp {
-    /**
-     * Move to first.
-     */
+    /** Move to first. */
     FIRST,
-    /**
-     * Move to last.
-     */
+    /** Move to last. */
     LAST,
-    /**
-     * Get "start" key with {@link GetOp#MDB_SET_RANGE}.
-     */
+    /** Get "start" key with {@link GetOp#MDB_SET_RANGE}. */
     GET_START_KEY,
-    /**
-     * Get "start" key with {@link GetOp#MDB_SET_RANGE}, fall back to LAST.
-     */
+    /** Get "start" key with {@link GetOp#MDB_SET_RANGE}, fall back to LAST. */
     GET_START_KEY_BACKWARD,
-    /**
-     * Move forward.
-     */
+    /** Move forward. */
     NEXT,
-    /**
-     * Move backward.
-     */
+    /** Move backward. */
     PREV
   }
 
-
   // --------------------------------------------------------------------------------
-
 
   static class IteratorOpTester<T> {
     private final KeyRangeType rangeType;
@@ -422,17 +395,19 @@ public enum KeyRangeType {
     // Used to prevent repeated checks for the start key after it has been passed
     private boolean performStartKeyCheck = true;
 
-    IteratorOpTester(final KeyRange<T> range,
-                     final RangeComparator rangeComparator,
-                     final Supplier<PrefixMatcher<T>> prefixMatcherProvider) {
+    IteratorOpTester(
+        final KeyRange<T> range,
+        final RangeComparator rangeComparator,
+        final Supplier<PrefixMatcher<T>> prefixMatcherProvider) {
 
       this.range = requireNonNull(range, "range required");
       this.rangeType = range.getType();
       this.rangeComparator = requireNonNull(rangeComparator, "rangeComparator required");
 
-      this.prefixMatcher = KeyRangeType.FORWARD_KEY_PREFIX == rangeType
-          ? requireNonNull(prefixMatcherProvider, "prefixMatcherProvider required").get()
-          : null;
+      this.prefixMatcher =
+          KeyRangeType.FORWARD_KEY_PREFIX == rangeType
+              ? requireNonNull(prefixMatcherProvider, "prefixMatcherProvider required").get()
+              : null;
     }
 
     /**
@@ -474,21 +449,21 @@ public enum KeyRangeType {
         case BACKWARD_AT_MOST:
           return rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE;
         case BACKWARD_CLOSED:
-          return greaterThanStartKeyThen(() ->
-              rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE);
+          return greaterThanStartKeyThen(
+              () -> rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE);
         case BACKWARD_CLOSED_OPEN:
-          return greaterThanStartKeyThen(() ->
-              rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE);
+          return greaterThanStartKeyThen(
+              () -> rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE);
         case BACKWARD_GREATER_THAN:
           return rangeComparator.compareToStartKey() >= 0 ? CALL_NEXT_OP : RELEASE;
         case BACKWARD_LESS_THAN:
           return rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE;
         case BACKWARD_OPEN:
-          return greaterThanEqualToStartKeyThen(() ->
-              rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE);
+          return greaterThanEqualToStartKeyThen(
+              () -> rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE);
         case BACKWARD_OPEN_CLOSED:
-          return greaterThanEqualToStartKeyThen(() ->
-              rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE);
+          return greaterThanEqualToStartKeyThen(
+              () -> rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE);
         case FORWARD_KEY_PREFIX:
           // start is a key prefix
           return prefixMatcher.prefixMatches(buffer, range.getStart()) ? RELEASE : TERMINATE;
@@ -498,9 +473,11 @@ public enum KeyRangeType {
     }
 
     /**
-     * Skip passed anything that is not equal to the start key, then once found just apply the stopKeyTest
+     * Skip passed anything that is not equal to the start key, then once found just apply the
+     * stopKeyTest
      */
-    private IteratorOp notEqualToStartKeyThen(final T buffer, final Supplier<IteratorOp> stopKeyTest) {
+    private IteratorOp notEqualToStartKeyThen(
+        final T buffer, final Supplier<IteratorOp> stopKeyTest) {
       if (performStartKeyCheck) {
         if (buffer.equals(range.getStart())) {
           // Found the start key so skip it, but no need to check for it next time
@@ -511,9 +488,7 @@ public enum KeyRangeType {
       return stopKeyTest.get();
     }
 
-    /**
-     * Skip passed anything that is > start key, then once found just apply the stopKeyTest
-     */
+    /** Skip passed anything that is > start key, then once found just apply the stopKeyTest */
     private IteratorOp greaterThanStartKeyThen(final Supplier<IteratorOp> stopKeyTest) {
       if (performStartKeyCheck) {
         if (rangeComparator.compareToStartKey() > 0) {
@@ -526,9 +501,7 @@ public enum KeyRangeType {
       return stopKeyTest.get();
     }
 
-    /**
-     * Skip passed anything that is >= start key, then once found just apply the stopKeyTest
-     */
+    /** Skip passed anything that is >= start key, then once found just apply the stopKeyTest */
     private IteratorOp greaterThanEqualToStartKeyThen(final Supplier<IteratorOp> stopKeyTest) {
       if (performStartKeyCheck) {
         if (rangeComparator.compareToStartKey() >= 0) {
