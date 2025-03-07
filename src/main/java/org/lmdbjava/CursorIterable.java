@@ -292,7 +292,6 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
     private final Key<T> stopKey;
     private final Pointer startKeyPointer;
     private final Pointer stopKeyPointer;
-    private final KeyRange<T> range;
 
     public LmdbRangeComparator(
         final Txn<T> txn,
@@ -303,9 +302,9 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
       txnPointer = Objects.requireNonNull(txn).pointer();
       dbiPointer = Objects.requireNonNull(dbi).pointer();
       cursorKeyPointer = Objects.requireNonNull(cursor).keyVal().pointerKey();
-      this.range = Objects.requireNonNull(range);
       // Allocate buffers for use with the start/stop keys if required.
       // Saves us copying bytes on each comparison
+      Objects.requireNonNull(range);
       startKey = createKey(range.getStart(), proxy);
       stopKey = createKey(range.getStop(), proxy);
       startKeyPointer = startKey != null ? startKey.pointer() : null;

@@ -195,7 +195,6 @@ public final class ByteBufferProxy {
     public PrefixMatcher<ByteBuffer> getPrefixMatcher() {
       return (buffer, prefixBuffer) -> {
         // No slice() in java 8
-        final ByteBuffer dup = buffer.duplicate();
         final int prefixLimit = prefixBuffer.limit();
         final int bufferLimit = buffer.limit();
         final boolean prefixMatches;
@@ -206,13 +205,10 @@ public final class ByteBufferProxy {
           prefixMatches = false;
         } else {
           // prefix is smaller than buffer so do equality on common length
+          final ByteBuffer dup = buffer.duplicate();
           dup.limit(prefixLimit);
           prefixMatches = dup.equals(prefixBuffer);
         }
-        //        final int part1 = dup.getInt(0);
-        //        final int prefix = prefixBuffer.getInt(0);
-        //        System.out.println("part1: " + part1 + ", prefix: " + prefix + " returning: " +
-        // prefixMatches);
         return prefixMatches;
       };
     }
