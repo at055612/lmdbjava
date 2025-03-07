@@ -262,6 +262,17 @@ public final class KeyRange<T> {
   }
 
   /**
+   * Create a {@link KeyRangeType#FORWARD_KEY_PREFIX} range.
+   *
+   * @param <T> buffer type
+   * @param keyPrefix start key (required)
+   * @return a key range (never null)
+   */
+  public static <T> KeyRange<T> keyPrefix(final T keyPrefix) {
+    return new KeyRange<>(KeyRangeType.FORWARD_KEY_PREFIX, keyPrefix, null);
+  }
+
+  /**
    * Start key.
    *
    * @return start key (may be null)

@@ -47,6 +47,7 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
   private final KeyVal<T> entry;
   private boolean iteratorReturned;
   private final KeyRange<T> range;
+  private KeyRangeType.IteratorOpTester<T> iteratorOpTester;
   private State state = REQUIRES_INITIAL_OP;
 
   CursorIterable(
@@ -66,6 +67,8 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
       // No java-side comparator so call down to LMDB to do the comparison
       this.rangeComparator = new LmdbRangeComparator<>(txn, dbi, cursor, range, proxy);
     }
+    this.iteratorOpTester = new KeyRangeType.IteratorOpTester<>(
+        range, rangeComparator, proxy::getPrefixMatcher);
   }
 
   @Override
@@ -149,10 +152,14 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
   }
 
   private void executeIteratorOp() {
-    final IteratorOp op = range.getType().iteratorOp(entry.key(), rangeComparator);
+    final KeyRangeType rangeType = range.getType();
+
+    final IteratorOp op = iteratorOpTester.test(entry.key());
+    //            entry.key(), range, rangeComparator, proxy::getPrefixMatcher);
+    //                proxy.getPrefixMatcher().prefixMatches(currentBuff, range.getStart()));
     switch (op) {
       case CALL_NEXT_OP:
-        executeCursorOp(range.getType().nextOp());
+        executeCursorOp(rangeType.nextOp());
         state = REQUIRES_ITERATOR_OP;
         break;
       case TERMINATE:
@@ -200,8 +207,11 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
     private T k;
     private T v;
 
-    /** Explicitly-defined default constructor to avoid warnings. */
-    public KeyVal() {}
+    /**
+     * Explicitly-defined default constructor to avoid warnings.
+     */
+    public KeyVal() {
+    }
 
     /**
      * The key.
@@ -230,7 +240,9 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
     }
   }
 
-  /** Represents the internal {@link CursorIterable} state. */
+  /**
+   * Represents the internal {@link CursorIterable} state.
+   */
   enum State {
     REQUIRES_INITIAL_OP,
     REQUIRES_NEXT_OP,
@@ -285,6 +297,7 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
     private final Key<T> stopKey;
     private final Pointer startKeyPointer;
     private final Pointer stopKeyPointer;
+    private final KeyRange<T> range;
 
     public LmdbRangeComparator(
         final Txn<T> txn,
@@ -295,9 +308,9 @@ public final class CursorIterable<T> implements Iterable<CursorIterable.KeyVal<T
       txnPointer = Objects.requireNonNull(txn).pointer();
       dbiPointer = Objects.requireNonNull(dbi).pointer();
       cursorKeyPointer = Objects.requireNonNull(cursor).keyVal().pointerKey();
+      this.range = Objects.requireNonNull(range);
       // Allocate buffers for use with the start/stop keys if required.
       // Saves us copying bytes on each comparison
-      Objects.requireNonNull(range);
       startKey = createKey(range.getStart(), proxy);
       stopKey = createKey(range.getStop(), proxy);
       startKeyPointer = startKey != null ? startKey.pointer() : null;

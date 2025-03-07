@@ -198,7 +198,14 @@ public final class KeyRangeTest {
       final Integer finalBuff = buff;
       final RangeComparator rangeComparator =
           new CursorIterable.JavaRangeComparator<>(range, Integer::compareTo, () -> finalBuff);
-      op = range.getType().iteratorOp(buff, rangeComparator);
+      final KeyRangeType.IteratorOpTester<Integer> tester =
+          new KeyRangeType.IteratorOpTester<>(
+              range,
+              rangeComparator,
+              () -> {
+                throw new UnsupportedOperationException("Can't to prefix matching on an integer");
+              });
+      op = tester.test(buff);
       switch (op) {
         case CALL_NEXT_OP:
           buff = cursor.apply(range.getType().nextOp(), range.getStart());

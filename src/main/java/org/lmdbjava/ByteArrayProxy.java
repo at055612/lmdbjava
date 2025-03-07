@@ -114,6 +114,11 @@ public final class ByteArrayProxy extends BufferProxy<byte[]> {
   }
 
   @Override
+  public PrefixMatcher<byte[]> getPrefixMatcher() {
+    throw new UnsupportedOperationException("TODO");
+  }
+
+  @Override
   protected void in(final byte[] buffer, final Pointer ptr, final long ptrAddr) {
     final Pointer pointer = MEM_MGR.allocateDirect(buffer.length);
     pointer.put(0, buffer, 0, buffer.length);

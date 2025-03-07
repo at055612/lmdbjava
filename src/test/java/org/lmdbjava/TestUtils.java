@@ -51,15 +51,13 @@ final class TestUtils {
   }
 
   static ByteBuffer bbNative(final int value) {
-    final ByteBuffer bb = allocateDirect(Long.BYTES)
-        .order(ByteOrder.nativeOrder());
+    final ByteBuffer bb = allocateDirect(Long.BYTES).order(ByteOrder.nativeOrder());
     bb.putInt(value).flip();
     return bb;
   }
 
   static int getNativeInt(final ByteBuffer bb) {
-    final int val = bb.order(ByteOrder.nativeOrder())
-        .getInt();
+    final int val = bb.order(ByteOrder.nativeOrder()).getInt();
     bb.rewind();
     return val;
   }

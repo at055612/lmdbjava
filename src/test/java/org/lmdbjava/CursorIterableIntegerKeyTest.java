@@ -71,8 +71,10 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.lmdbjava.CursorIterable.KeyVal;
 
-/** Test {@link CursorIterable} using {@link DbiFlags#MDB_INTEGERKEY} to ensure that
- * comparators work with native order integer keys. */
+/**
+ * Test {@link CursorIterable} using {@link DbiFlags#MDB_INTEGERKEY} to ensure that comparators work
+ * with native order integer keys.
+ */
 public final class CursorIterableIntegerKeyTest {
 
   @Rule public final TemporaryFolder tmp = new TemporaryFolder();
@@ -135,18 +137,13 @@ public final class CursorIterableIntegerKeyTest {
             .open(path, POSIX_MODE, MDB_NOSUBDIR);
 
     // Use a java comparator for start/stop keys only
-    dbJavaComparator = env.openDbi(DB_1,
-        bufferProxy.getUnsignedComparator(),
-        MDB_CREATE,
-        MDB_INTEGERKEY);
+    dbJavaComparator =
+        env.openDbi(DB_1, bufferProxy.getUnsignedComparator(), MDB_CREATE, MDB_INTEGERKEY);
     // Use LMDB comparator for start/stop keys
     dbLmdbComparator = env.openDbi(DB_2, MDB_CREATE, MDB_INTEGERKEY);
     // Use a java comparator for start/stop keys and as a callback comparaotr
-    dbCallbackComparator = env.openDbi(DB_3,
-        bufferProxy.getUnsignedComparator(),
-        true,
-        MDB_CREATE,
-        MDB_INTEGERKEY);
+    dbCallbackComparator =
+        env.openDbi(DB_3, bufferProxy.getUnsignedComparator(), true, MDB_CREATE, MDB_INTEGERKEY);
 
     populateList();
 

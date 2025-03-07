@@ -26,7 +26,7 @@ import static org.lmdbjava.KeyRangeType.IteratorOp.CALL_NEXT_OP;
 import static org.lmdbjava.KeyRangeType.IteratorOp.RELEASE;
 import static org.lmdbjava.KeyRangeType.IteratorOp.TERMINATE;
 
-import java.util.Comparator;
+import java.util.function.Supplier;
 
 /**
  * Key range type.
@@ -221,11 +221,34 @@ public enum KeyRangeType {
    * 2. With a range of 8 - 4, the keys would be 6 and 4. With a range of 9 - 4, the keys would be
    * 8, 6 and 4.
    */
-  BACKWARD_OPEN_CLOSED(false, true, true);
+  BACKWARD_OPEN_CLOSED(false, true, true),
+
+  /**
+   * Iterate forward over all entries where the key starts with the key prefix held in startKey.
+   *
+   * <p>Assuming the table contains keys of the form {@code <int>|<int>} and values
+   *
+   * <ul>
+   *   <li>'200'
+   *   <li>'200|202'
+   *   <li>'200|204'
+   *   <li>'400'
+   *   <li>'400|402'
+   *   <li>'400|404'
+   *   <li>'600'
+   *   <li>'600|602'
+   *   <li>'600|604'
+   * </ul>
+   * <p>
+   * A startKey of '400' would return keys '400', '400|402' and '400|404' due to the common prefix.
+   */
+  FORWARD_KEY_PREFIX(true, true, false),
+  ;
 
   private final boolean directionForward;
   private final boolean startKeyRequired;
   private final boolean stopKeyRequired;
+  private final CursorOp nextOp;
 
   KeyRangeType(
       final boolean directionForward,
@@ -234,6 +257,7 @@ public enum KeyRangeType {
     this.directionForward = directionForward;
     this.startKeyRequired = startKeyRequired;
     this.stopKeyRequired = stopKeyRequired;
+    this.nextOp = directionForward ? NEXT : PREV;
   }
 
   /**
@@ -309,81 +333,8 @@ public enum KeyRangeType {
         return GET_START_KEY_BACKWARD;
       case BACKWARD_OPEN_CLOSED:
         return GET_START_KEY_BACKWARD;
-      default:
-        throw new IllegalStateException("Invalid type");
-    }
-  }
-
-  /**
-   * Determine the iterator's response to the presented key.
-   *
-   * @param <T> buffer type
-   * @param <C> comparator for the buffers
-   * @param buffer current key returned by LMDB (may be null)
-   * @param rangeComparator comparator (required)
-   * @return response to this key
-   */
-  <T, C extends Comparator<T>> IteratorOp iteratorOp(
-      final T buffer, final RangeComparator rangeComparator) {
-    requireNonNull(rangeComparator, "Comparator required");
-    if (buffer == null) {
-      return TERMINATE;
-    }
-    switch (this) {
-      case FORWARD_ALL:
-        return RELEASE;
-      case FORWARD_AT_LEAST:
-        return RELEASE;
-      case FORWARD_AT_MOST:
-        return rangeComparator.compareToStopKey() > 0 ? TERMINATE : RELEASE;
-      case FORWARD_CLOSED:
-        return rangeComparator.compareToStopKey() > 0 ? TERMINATE : RELEASE;
-      case FORWARD_CLOSED_OPEN:
-        return rangeComparator.compareToStopKey() >= 0 ? TERMINATE : RELEASE;
-      case FORWARD_GREATER_THAN:
-        return rangeComparator.compareToStartKey() == 0 ? CALL_NEXT_OP : RELEASE;
-      case FORWARD_LESS_THAN:
-        return rangeComparator.compareToStopKey() >= 0 ? TERMINATE : RELEASE;
-      case FORWARD_OPEN:
-        if (rangeComparator.compareToStartKey() == 0) {
-          return CALL_NEXT_OP;
-        }
-        return rangeComparator.compareToStopKey() >= 0 ? TERMINATE : RELEASE;
-      case FORWARD_OPEN_CLOSED:
-        if (rangeComparator.compareToStartKey() == 0) {
-          return CALL_NEXT_OP;
-        }
-        return rangeComparator.compareToStopKey() > 0 ? TERMINATE : RELEASE;
-      case BACKWARD_ALL:
-        return RELEASE;
-      case BACKWARD_AT_LEAST:
-        return rangeComparator.compareToStartKey() > 0 ? CALL_NEXT_OP : RELEASE; // rewind
-      case BACKWARD_AT_MOST:
-        return rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE;
-      case BACKWARD_CLOSED:
-        if (rangeComparator.compareToStartKey() > 0) {
-          return CALL_NEXT_OP; // rewind
-        }
-        return rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE;
-      case BACKWARD_CLOSED_OPEN:
-        if (rangeComparator.compareToStartKey() > 0) {
-          return CALL_NEXT_OP; // rewind
-        }
-        return rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE;
-      case BACKWARD_GREATER_THAN:
-        return rangeComparator.compareToStartKey() >= 0 ? CALL_NEXT_OP : RELEASE;
-      case BACKWARD_LESS_THAN:
-        return rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE;
-      case BACKWARD_OPEN:
-        if (rangeComparator.compareToStartKey() >= 0) {
-          return CALL_NEXT_OP; // rewind
-        }
-        return rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE;
-      case BACKWARD_OPEN_CLOSED:
-        if (rangeComparator.compareToStartKey() >= 0) {
-          return CALL_NEXT_OP; // rewind
-        }
-        return rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE;
+      case FORWARD_KEY_PREFIX:
+        return GET_START_KEY;
       default:
         throw new IllegalStateException("Invalid type");
     }
@@ -399,32 +350,195 @@ public enum KeyRangeType {
    * @return appropriate action for this key range type
    */
   CursorOp nextOp() {
-    return isDirectionForward() ? NEXT : PREV;
+    return nextOp;
   }
 
-  /** Action now required with the iterator. */
+
+  // --------------------------------------------------------------------------------
+
+
+  /**
+   * Action now required with the iterator.
+   */
   enum IteratorOp {
-    /** Consider iterator completed. */
+    /**
+     * Consider iterator completed.
+     */
     TERMINATE,
-    /** Call {@link KeyRange#nextOp()} again and try again. */
+    /**
+     * Call {@link KeyRange#nextOp()} again and try again.
+     */
     CALL_NEXT_OP,
-    /** Return the key to the user. */
+    /**
+     * Return the key to the user.
+     */
     RELEASE
   }
 
-  /** Action now required with the cursor. */
+
+  // --------------------------------------------------------------------------------
+
+
+  /**
+   * Action now required with the cursor.
+   */
   enum CursorOp {
-    /** Move to first. */
+    /**
+     * Move to first.
+     */
     FIRST,
-    /** Move to last. */
+    /**
+     * Move to last.
+     */
     LAST,
-    /** Get "start" key with {@link GetOp#MDB_SET_RANGE}. */
+    /**
+     * Get "start" key with {@link GetOp#MDB_SET_RANGE}.
+     */
     GET_START_KEY,
-    /** Get "start" key with {@link GetOp#MDB_SET_RANGE}, fall back to LAST. */
+    /**
+     * Get "start" key with {@link GetOp#MDB_SET_RANGE}, fall back to LAST.
+     */
     GET_START_KEY_BACKWARD,
-    /** Move forward. */
+    /**
+     * Move forward.
+     */
     NEXT,
-    /** Move backward. */
+    /**
+     * Move backward.
+     */
     PREV
+  }
+
+
+  // --------------------------------------------------------------------------------
+
+
+  static class IteratorOpTester<T> {
+    private final KeyRangeType rangeType;
+    private final KeyRange<T> range;
+    private final RangeComparator rangeComparator;
+    private final PrefixMatcher<T> prefixMatcher;
+
+    // Used to prevent repeated checks for the start key after it has been passed
+    private boolean performStartKeyCheck = true;
+
+    IteratorOpTester(final KeyRange<T> range,
+                     final RangeComparator rangeComparator,
+                     final Supplier<PrefixMatcher<T>> prefixMatcherProvider) {
+
+      this.range = requireNonNull(range, "range required");
+      this.rangeType = range.getType();
+      this.rangeComparator = requireNonNull(rangeComparator, "rangeComparator required");
+
+      this.prefixMatcher = KeyRangeType.FORWARD_KEY_PREFIX == rangeType
+          ? requireNonNull(prefixMatcherProvider, "prefixMatcherProvider required").get()
+          : null;
+    }
+
+    /**
+     * Test buffer to determine whether the entry should be skipped over, consumed or iteration
+     * terminated.
+     *
+     * @param buffer The buffer to test
+     * @return The iteration operation.
+     */
+    IteratorOp test(final T buffer) {
+      if (buffer == null) {
+        return TERMINATE;
+      }
+      switch (rangeType) {
+        case FORWARD_ALL:
+          return RELEASE;
+        case FORWARD_AT_LEAST:
+          return RELEASE;
+        case FORWARD_AT_MOST:
+          return rangeComparator.compareToStopKey() > 0 ? TERMINATE : RELEASE;
+        case FORWARD_CLOSED:
+          return rangeComparator.compareToStopKey() > 0 ? TERMINATE : RELEASE;
+        case FORWARD_CLOSED_OPEN:
+          return rangeComparator.compareToStopKey() >= 0 ? TERMINATE : RELEASE;
+        case FORWARD_GREATER_THAN:
+          return notEqualToStartKeyThen(buffer, () -> RELEASE);
+        case FORWARD_LESS_THAN:
+          return rangeComparator.compareToStopKey() >= 0 ? TERMINATE : RELEASE;
+        case FORWARD_OPEN:
+          return notEqualToStartKeyThen(
+              buffer, () -> rangeComparator.compareToStopKey() >= 0 ? TERMINATE : RELEASE);
+        case FORWARD_OPEN_CLOSED:
+          return notEqualToStartKeyThen(
+              buffer, () -> rangeComparator.compareToStopKey() > 0 ? TERMINATE : RELEASE);
+        case BACKWARD_ALL:
+          return RELEASE;
+        case BACKWARD_AT_LEAST:
+          return rangeComparator.compareToStartKey() > 0 ? CALL_NEXT_OP : RELEASE; // rewind
+        case BACKWARD_AT_MOST:
+          return rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE;
+        case BACKWARD_CLOSED:
+          return greaterThanStartKeyThen(() ->
+              rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE);
+        case BACKWARD_CLOSED_OPEN:
+          return greaterThanStartKeyThen(() ->
+              rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE);
+        case BACKWARD_GREATER_THAN:
+          return rangeComparator.compareToStartKey() >= 0 ? CALL_NEXT_OP : RELEASE;
+        case BACKWARD_LESS_THAN:
+          return rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE;
+        case BACKWARD_OPEN:
+          return greaterThanEqualToStartKeyThen(() ->
+              rangeComparator.compareToStopKey() > 0 ? RELEASE : TERMINATE);
+        case BACKWARD_OPEN_CLOSED:
+          return greaterThanEqualToStartKeyThen(() ->
+              rangeComparator.compareToStopKey() >= 0 ? RELEASE : TERMINATE);
+        case FORWARD_KEY_PREFIX:
+          // start is a key prefix
+          return prefixMatcher.prefixMatches(buffer, range.getStart()) ? RELEASE : TERMINATE;
+        default:
+          throw new IllegalStateException("Invalid type");
+      }
+    }
+
+    /**
+     * Skip passed anything that is not equal to the start key, then once found just apply the stopKeyTest
+     */
+    private IteratorOp notEqualToStartKeyThen(final T buffer, final Supplier<IteratorOp> stopKeyTest) {
+      if (performStartKeyCheck) {
+        if (buffer.equals(range.getStart())) {
+          // Found the start key so skip it, but no need to check for it next time
+          performStartKeyCheck = false;
+          return CALL_NEXT_OP;
+        }
+      }
+      return stopKeyTest.get();
+    }
+
+    /**
+     * Skip passed anything that is > start key, then once found just apply the stopKeyTest
+     */
+    private IteratorOp greaterThanStartKeyThen(final Supplier<IteratorOp> stopKeyTest) {
+      if (performStartKeyCheck) {
+        if (rangeComparator.compareToStartKey() > 0) {
+          return CALL_NEXT_OP;
+        } else {
+          // Passed the start key so, no need to check for it next time
+          performStartKeyCheck = false;
+        }
+      }
+      return stopKeyTest.get();
+    }
+
+    /**
+     * Skip passed anything that is >= start key, then once found just apply the stopKeyTest
+     */
+    private IteratorOp greaterThanEqualToStartKeyThen(final Supplier<IteratorOp> stopKeyTest) {
+      if (performStartKeyCheck) {
+        if (rangeComparator.compareToStartKey() >= 0) {
+          return CALL_NEXT_OP;
+        } else {
+          // Passed the start key so, no need to check for it next time
+          performStartKeyCheck = false;
+        }
+      }
+      return stopKeyTest.get();
+    }
   }
 }

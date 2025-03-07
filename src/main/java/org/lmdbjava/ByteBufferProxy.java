@@ -192,6 +192,32 @@ public final class ByteBufferProxy {
     }
 
     @Override
+    public PrefixMatcher<ByteBuffer> getPrefixMatcher() {
+      return (buffer, prefixBuffer) -> {
+        // No slice() in java 8
+        final ByteBuffer dup = buffer.duplicate();
+        final int prefixLimit = prefixBuffer.limit();
+        final int bufferLimit = buffer.limit();
+        final boolean prefixMatches;
+        if (prefixLimit == bufferLimit) {
+          prefixMatches = buffer.equals(prefixBuffer);
+        } else if (prefixLimit > bufferLimit) {
+          // prefix is bigger than buffer so can't contain it
+          prefixMatches = false;
+        } else {
+          // prefix is smaller than buffer so do equality on common length
+          dup.limit(prefixLimit);
+          prefixMatches = dup.equals(prefixBuffer);
+        }
+        //        final int part1 = dup.getInt(0);
+        //        final int prefix = prefixBuffer.getInt(0);
+        //        System.out.println("part1: " + part1 + ", prefix: " + prefix + " returning: " +
+        // prefixMatches);
+        return prefixMatches;
+      };
+    }
+
+    @Override
     protected final void deallocate(final ByteBuffer buff) {
       buff.order(BIG_ENDIAN);
       final ArrayDeque<ByteBuffer> queue = BUFFERS.get();

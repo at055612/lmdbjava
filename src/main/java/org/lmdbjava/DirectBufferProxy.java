@@ -121,6 +121,11 @@ public final class DirectBufferProxy extends BufferProxy<DirectBuffer> {
   }
 
   @Override
+  public PrefixMatcher<DirectBuffer> getPrefixMatcher() {
+    throw new UnsupportedOperationException("TODO");
+  }
+
+  @Override
   protected void deallocate(final DirectBuffer buff) {
     final ArrayDeque<DirectBuffer> q = BUFFERS.get();
     q.offer(buff);

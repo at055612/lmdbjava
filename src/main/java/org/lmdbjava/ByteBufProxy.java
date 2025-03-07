@@ -124,6 +124,11 @@ public final class ByteBufProxy extends BufferProxy<ByteBuf> {
   }
 
   @Override
+  public PrefixMatcher<ByteBuf> getPrefixMatcher() {
+    throw new UnsupportedOperationException("TODO");
+  }
+
+  @Override
   protected void deallocate(final ByteBuf buff) {
     buff.release();
   }

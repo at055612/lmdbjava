@@ -84,6 +84,8 @@ public abstract class BufferProxy<T> {
    */
   public abstract Comparator<T> getUnsignedComparator();
 
+  public abstract PrefixMatcher<T> getPrefixMatcher();
+
   /**
    * Called when the <code>MDB_val</code> should be set to reflect the passed buffer. This buffer
    * will have been created by end users, not {@link #allocate()}.
