@@ -244,6 +244,13 @@ public enum KeyRangeType {
    * prefix.
    */
   FORWARD_KEY_PREFIX(true, true, false),
+
+  // TODO - add BACKWARD_KEY_PREFIX
+  //  Start key will be made by 'incrementing' (in byte terms) the prefix, i.e. add one to the
+  //   least significant byte, rolling round and carrying over if it is FF. Need to take endianness
+  //   into account.
+  //  Start will have been found/passed when a key matches on the prefix.
+  //  Stop will have been passed when the key does not match on the prefix.
   ;
 
   private final boolean directionForward;
