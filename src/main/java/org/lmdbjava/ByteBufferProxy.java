@@ -193,6 +193,7 @@ public final class ByteBufferProxy {
 
     @Override
     public PrefixMatcher<ByteBuffer> getPrefixMatcher() {
+      // TODO This needs to be endianness ware
       return (buffer, prefixBuffer) -> {
         // No slice() in java 8
         final int prefixLimit = prefixBuffer.limit();
